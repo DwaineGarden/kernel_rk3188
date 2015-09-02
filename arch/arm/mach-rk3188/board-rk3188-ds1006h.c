@@ -450,7 +450,7 @@ static int mt6229_io_deinit(void)
 	
 	return 0;
 }
- 
+
 struct rk29_mt6229_data rk29_mt6229_info = {
 	.io_init = mt6229_io_init,
   	.io_deinit = mt6229_io_deinit,
@@ -2081,6 +2081,24 @@ static void __init machine_rk30_board_init(void)
 	//avs_init();
 	gpio_request(POWER_ON_PIN, "poweronpin");
 	gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
+
+	// init usb host power on pin state, to support V3.2 board, dzwei, 2014-12-18
+	gpio_request(RK30_PIN0_PC6, "usb_host_powerpin");
+	gpio_direction_output(RK30_PIN0_PC6, GPIO_HIGH);
+
+	// GPIO1_B5=HOST_DRV
+	// this pin for embedded Android board, to controll the power of USB host
+	gpio_request(RK30_PIN1_PB5, "usb_host_powerpin");
+	gpio_direction_output(RK30_PIN1_PB5, GPIO_HIGH);
+
+	// GPIO1_B4=OTG_ID_EN
+	// this pin for embedded Android board, to controll the function of USB OTG
+	// when this pin set to low, OTG act as slave
+	// when this pin set to high,OTG act as host
+	// We set the OTG port to host as default.
+	// dzwei, 2014-12-30
+	gpio_request(RK30_PIN1_PB4, "usb_otg_id");
+	gpio_direction_output(RK30_PIN1_PB4, GPIO_HIGH);
 	
 	pm_power_off = rk30_pm_power_off;
 	
@@ -2175,6 +2193,10 @@ static struct cpufreq_frequency_table dvfs_arm_table_volt_level0[] = {
         {.frequency = 1200 * 1000,      .index = 1100 * 1000},
         {.frequency = 1416 * 1000,      .index = 1200 * 1000},
         {.frequency = 1608 * 1000,      .index = 1300 * 1000},
+#ifdef RK3188_OVERCLOCK
+        {.frequency = 1704 * 1000,	.index = 1400 * 1000},  
+        {.frequency = 1800 * 1000,	.index = 1425 * 1000},
+#endif
         {.frequency = CPUFREQ_TABLE_END},
 };
 //default
@@ -2186,6 +2208,10 @@ static struct cpufreq_frequency_table dvfs_arm_table_volt_level1[] = {
         {.frequency = 1200 * 1000,      .index = 1150 * 1000},
         {.frequency = 1416 * 1000,      .index = 1250 * 1000},
         {.frequency = 1608 * 1000,      .index = 1350 * 1000},
+#ifdef RK3188_OVERCLOCK
+        {.frequency = 1704 * 1000,	.index = 1400 * 1000},  
+        {.frequency = 1800 * 1000,	.index = 1425 * 1000},
+#endif
         {.frequency = CPUFREQ_TABLE_END},
 };
 // ds1006h 10'
@@ -2197,6 +2223,10 @@ static struct cpufreq_frequency_table dvfs_arm_table_volt_level2[] = {
         {.frequency = 1200 * 1000,      .index = 1200 * 1000},
         {.frequency = 1416 * 1000,      .index = 1250 * 1000},
         {.frequency = 1608 * 1000,      .index = 1350 * 1000},
+#ifdef RK3188_OVERCLOCK
+        {.frequency = 1704 * 1000,	.index = 1400 * 1000},  
+        {.frequency = 1800 * 1000,	.index = 1425 * 1000},  
+#endif
         {.frequency = CPUFREQ_TABLE_END},
 };
 //if you board is good for volt quality,select dvfs_arm_table_volt_level0
@@ -2297,3 +2327,4 @@ MACHINE_START(RK30, "RK30board")
 	.timer		= &rk30_timer,
 	.init_machine	= machine_rk30_board_init,
 MACHINE_END
+

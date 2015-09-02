@@ -28,6 +28,7 @@
 #include <asm/io.h>  
 #include <linux/list.h>
 #include <linux/sched.h>
+#include <mach/gpio.h>
 
 //#define DEBUG_ZBIAO
 #ifdef DEBUG_ZBIAO
@@ -103,6 +104,9 @@ static int bt_status = BT_STATUS_POWER_OFF;
 // mcu status
 #define IOCTL_HANDLE_MCU_LIGHT_STATUS       _IO(HANDLE_CTRL_DEV_MAJOR, 40)
 #define IOCTL_HANDLE_MCU_REVERSE_STATUS       _IO(HANDLE_CTRL_DEV_MAJOR, 41)
+// OTG
+#define IOCTL_HANDLE_OTG_HOST      			_IO(HANDLE_CTRL_DEV_MAJOR, 42)
+#define IOCTL_HANDLE_OTG_SLAVE          	_IO(HANDLE_CTRL_DEV_MAJOR, 43)
 
 #define ASTERN_STATE     		 0			    //mcu astern status
 #define LIGHT_STATE			 1			    //mcu light status
@@ -161,6 +165,8 @@ static int bonovo_fasync(int fd, struct file *filp, int mode)
 }
 
 extern int serial_send_ack(char * data, int len);
+extern void bonovo_light_state_key(void);
+extern void bonovo_reverse_key(void);
 
 // about radio ----------------------------------------------------
 #define RADIO_BUF_LEN    20
@@ -262,7 +268,8 @@ static int codecSwitchAnalogSrc(CODEC_Level switchToSrc)
 	down(&codec_src->codec_sem);
 	if(codec_src->current_src != CODEC_LEVEL_BT_TEL){
 		pnode = (struct audio_node *)kmalloc(sizeof(struct audio_node), GFP_KERNEL);
-		pnode->id = codec_src->turn_pid = current->pid;
+		pnode->id = codec_src->turn_pid;
+        codec_src->turn_pid = current->pid;
 		pnode->level = codec_src->current_src;
 		list_add(&pnode->node, &codec_src->list);
 		codec_src->current_src = switchToSrc;
@@ -880,9 +887,11 @@ void bonovo_mcu_status(char* data, int size)
     switch(data[0]){
 	case ASTERN_STATE:
 		mcu_st .astern_status = (data[1] & 0x00FF) + ((data[2]<<8) & 0x00FF);
+		bonovo_reverse_key();
 		break;
 	case LIGHT_STATE:
 		mcu_st .light_status = (data[1] & 0x00FF) + ((data[2]<<8) & 0x00FF);
+		bonovo_light_state_key();
 		break;
 	default:
 		printk(KERN_INFO "Nothing to do myu\n");
@@ -1001,6 +1010,18 @@ static long bonovo_handle_ioctl (struct file *filp,
         rk29_send_power_key(1);
         rk29_send_power_key(0);
         break;
+	case IOCTL_HANDLE_OTG_HOST:
+		// GPIO1_B4=OTG_ID_EN
+		// this pin for embedded Android board, to controll the function of USB OTG
+		// when this pin set to low, OTG act as slave
+		// when this pin set to high,OTG act as host
+		// We set the OTG port to host as default.
+		// dzwei, 2014-12-30
+		gpio_direction_output(RK30_PIN1_PB4, GPIO_HIGH);
+		break;
+	case IOCTL_HANDLE_OTG_SLAVE:
+		gpio_direction_output(RK30_PIN1_PB4, GPIO_LOW);
+		break;
 	default :
 		return -EINVAL;
 		break;
